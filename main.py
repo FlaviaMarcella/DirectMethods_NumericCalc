@@ -39,44 +39,12 @@ def main():
     # =================================================================
     print("--- Secção 2: Efeito do Pivoteamento (float32) ---")
     
-    # [!] Implementações locais rigorosas em float32 para garantir o erro de precisão
-    def resolver_sem_f32(A, b):
-        A, b = np.array(A, dtype=np.float32), np.array(b, dtype=np.float32)
-        n = len(b)
-        for k in range(n - 1):
-            for i in range(k + 1, n):
-                m = np.float32(A[i, k] / A[k, k])
-                A[i, k:] -= m * A[k, k:]
-                b[i]     -= m * b[k]
-        
-        x = np.zeros(n, dtype=np.float32)
-        for i in range(n - 1, -1, -1):
-            x[i] = np.float32((b[i] - A[i, i + 1:] @ x[i + 1:]) / A[i, i])
-        return x
-
-    def resolver_com_f32(A, b):
-        A, b = np.array(A, dtype=np.float32), np.array(b, dtype=np.float32)
-        n = len(b)
-        for k in range(n - 1):
-            p = np.argmax(np.abs(A[k:, k])) + k
-            A[[k, p]] = A[[p, k]]
-            b[[k, p]] = b[[p, k]]
-            for i in range(k + 1, n):
-                m = np.float32(A[i, k] / A[k, k])
-                A[i, k:] -= m * A[k, k:]
-                b[i]     -= m * b[k]
-                
-        x = np.zeros(n, dtype=np.float32)
-        for i in range(n - 1, -1, -1):
-            x[i] = np.float32((b[i] - A[i, i + 1:] @ x[i + 1:]) / A[i, i])
-        return x
-
     A_mal = np.array([[0.0003, 3], 
                       [1, 1]], dtype=np.float32)
     b_mal = np.array([2.0001, 1], dtype=np.float32)
     
-    x_sem = resolver_sem_f32(A_mal.copy(), b_mal.copy())
-    x_com = resolver_com_f32(A_mal.copy(), b_mal.copy())
+    x_sem = resolver_gauss_sem(A_mal.copy(), b_mal.copy())
+    x_com = resolver_gauss(A_mal.copy(), b_mal.copy())
     
     print(f"Solução SEM Pivoteamento: {x_sem}")
     print(f"Solução COM Pivoteamento: {x_com}\n")
@@ -91,8 +59,8 @@ def main():
         A_temp = np.array([[a11, 3], [1, 1]], dtype=np.float32)
         b_temp = np.array([2.0001, 1], dtype=np.float32)
         
-        x_sem_temp = resolver_sem_f32(A_temp, b_temp)
-        x_com_temp = resolver_com_f32(A_temp, b_temp)
+        x_sem_temp = resolver_gauss_sem(A_temp, b_temp)
+        x_com_temp = resolver_gauss(A_temp, b_temp)
         
         e_sem = max(abs(x_sem_temp[0] - x_true[0]) / abs(x_true[0]),
                     abs(x_sem_temp[1] - x_true[1]) / abs(x_true[1]))
@@ -133,22 +101,20 @@ def main():
     # =================================================================
     print("--- Secção 4: Algoritmo de Thomas ---")
     
-    # TODO: Implementar um teste comparativo entre o algoritmo de Thomas e a eliminação de Gauss para sistemas tridiagonais, medindo tempos e erros relativos para diferentes dimensões n. Gerar um gráfico comparativo dos tempos e erros.
-
+    # TODO
     # =================================================================
     # Secção 5: Custo computacional empírico (Cholesky vs LU)
     # =================================================================
-    print("--- Secção 5: Custo Computacional (Cholesky vs LU) ---")
+    
+    print("--- Secção 5: Custo Computacional Empírico (Cholesky vs LU) ---")
 
-    # TODO: Implementar a geração de matrizes SPD, medir os tempos de resolução via Cholesky e LU para diferentes dimensões n, e gerar um gráfico comparativo dos tempos.
-
+    # TODO
     # =================================================================
     # Secção 6: Condicionamento (Matriz de Hilbert)
     # =================================================================
     print("--- Secção 6: Condicionamento (Matriz de Hilbert) ---")
-    
-    # TODO: Implementar a geração da matriz de Hilbert, perturbar o vetor b e calcular os erros relativos para diferentes ordens n. Gerar um gráfico do erro relativo em função de n.
 
+    # TODO
     # =================================================================
     # Secção 7: PageRank
     # =================================================================
