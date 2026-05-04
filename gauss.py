@@ -14,18 +14,20 @@ def subst_retro(U, y):
     for i in range(n - 1, -1, -1):
         if U[i, i] == 0:
             raise ValueError("Divisao por zero na substituicao retroativa.")
-        x[i] = U.dtype.type((y[i] - U[i, i + 1:] @ x[i + 1:]) / U[i, i])
+        # Garante que a operação respeite o dtype original (float32 ou float64)
+        soma = U[i, i + 1:] @ x[i + 1:]
+        x[i] = (y[i] - soma) / U[i, i]
     return x
 
 def gauss_sem_pivoteamento(A, b):
     """ Eliminacao de Gauss SEM pivoteamento. """
-    tipo = np.float32 if A.dtype == np.float32 else float
-    A = np.array(A, dtype=tipo)
-    b = np.array(b, dtype=tipo)
+    tipo = A.dtype
     n = len(b)
+    A = A.copy()
+    b = b.copy()
     for k in range(n - 1):
         for i in range(k + 1, n):
-            m = tipo(A[i, k] / A[k, k])
+            m = A[i, k] / A[k, k]
             A[i, k:] -= m * A[k, k:]
             b[i]     -= m * b[k]
     return A, b
@@ -37,10 +39,10 @@ def resolver_gauss_sem(A, b):
 
 def gauss(A, b):
     """ Eliminacao de Gauss com pivoteamento parcial. """
-    tipo = np.float32 if A.dtype == np.float32 else float
-    A = np.array(A, dtype=tipo)
-    b = np.array(b, dtype=tipo)
+    tipo = A.dtype
     n = len(b)
+    A = A.copy()
+    b = b.copy()
     for k in range(n - 1):
         # Pivoteamento parcial
         p = np.argmax(np.abs(A[k:, k])) + k
@@ -48,7 +50,7 @@ def gauss(A, b):
         b[[k, p]] = b[[p, k]]
 
         for i in range(k + 1, n):
-            m = tipo(A[i, k] / A[k, k])
+            m = A[i, k] / A[k, k]
             A[i, k:] -= m * A[k, k:]
             b[i]     -= m * b[k]
     return A, b
@@ -58,14 +60,34 @@ def resolver_gauss(A, b):
     Au, bu = gauss(A, b)
     return subst_retro(Au, bu)
 
+def experimento_estabilidade_gauss(a11_vals):
+    """
+    Executa o experimento de estabilidade (Q1.4) variando a11.
+    Retorna os erros relativos para as versões sem e com pivoteamento.
+    """
+    erro_sem, erro_com = [], []
+    x_true = np.array([1/3, 2/3], dtype=np.float32)
+
+    for a11 in a11_vals:
+        A_p = np.array([[a11, 3], [1, 1]], dtype=np.float32)
+        b_p = np.array([2.0001, 1], dtype=np.float32)
+        
+        xs = resolver_gauss_sem(A_p, b_p)
+        xc = resolver_gauss(A_p, b_p)
+        
+        erro_sem.append(abs(xs[0] - x_true[0]) / x_true[0])
+        erro_com.append(abs(xc[0] - x_true[0]) / x_true[0])
+        
+    return erro_sem, erro_com
+
 LIMIAR_SINGULARIDADE = 1e-12
 
 def gauss_singular(A, b):
     """ Eliminacao de Gauss com deteccao rigorosa de quase-singularidade. """
-    tipo = np.float32 if A.dtype == np.float32 else float
-    A = np.array(A, dtype=tipo)
-    b = np.array(b, dtype=tipo)
+    tipo = A.dtype
     n = len(b)
+    A = A.copy()
+    b = b.copy()
     for k in range(n - 1):
         p = np.argmax(np.abs(A[k:, k])) + k
         A[[k, p]] = A[[p, k]]
@@ -75,7 +97,7 @@ def gauss_singular(A, b):
             raise ValueError(f"Matriz singular! Pivo A[{k},{k}] = {A[k,k]:.4e} < {LIMIAR_SINGULARIDADE:.0e}")
 
         for i in range(k + 1, n):
-            m = tipo(A[i, k] / A[k, k])
+            m = A[i, k] / A[k, k]
             A[i, k:] -= m * A[k, k:]
             b[i]     -= m * b[k]
 
