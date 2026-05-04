@@ -11,7 +11,7 @@ import time
 import matplotlib.pyplot as plt
 
 # Importando os módulos desenvolvidos
-from gauss import resolver_gauss, experimento_estabilidade_gauss
+from gauss import resolver_gauss, resolver_gauss_sem_pivoteamento, resolver_gauss_precision, experimento_estabilidade_gauss
 from lu import fatoracao_lu, fatoracao_lu_vectorized, experimento_desempenho_lu
 from pagerank import calcular_pagerank
 
@@ -27,35 +27,117 @@ def main():
     # Seção 1: Verificação básica
     # =========================================================================
     print("--- Seção 1: Verificação básica ---")
-    A = np.array([[3, 2, 4], [1, 1, 2], [4, 3, -2]], dtype=float)
-    b = np.array([1, 2, 3], dtype=float)
+    A = np.array([[3, 2, 4], [1, 1, 2], [4, 3, -2]], dtype=np.float32)
+    b = np.array([1, 2, 3], dtype=np.float32)
     x = resolver_gauss(A, b)
-    print(f"Seção 1 Solução: {x}")
-    print(f"Seção 1 Resíduo: {np.linalg.norm(A @ x - b):.2e}\n")
+    residuo = np.linalg.norm(A @ x - b)
+    print(f"    Seção 1 Matriz: {A}")
+    print(f"    Seção 1 Vetor b: {b}")
+    print(f"    Seção 1 Resíduo: {residuo:.2e}\n")
+    print(f"    Seção 1 Solução: {x}")
+
+    # Verificando a solução: A @x deve ser aproximadamente b
+    print(f"    Seção 1 Verificação: (Ax) = {A @ x}")
+    print(f"    Seção 1 Diferença: {A @ x - b}")
+
 
     # =========================================================================
-    # Seção 2: Efeito do pivoteamento (Gráfico Q1.4)
+    # Seção 1.3: Efeito do pivoteamento
     # =========================================================================
-    print("--- Seção 2: Efeito do pivoteamento (Q1.4) ---")
-    a11_vals = [10**-1, 10**-3, 10**-6, 10**-9]
+
+    print('--- Efeito do pivoteamento na precisão ---')
+
+    # Defina a matriz A e o vetor b para um sistema de equações lineares
+    A = np.array([
+    [0.0003, 3],
+    [1, 1]
+    ], dtype=np.float32)
+
+    b = np.array([2.0001, 1], dtype=np.float32)
+
+    # Resolva o sistema usando a função resolver_gauss_sem_pivoteamento
+    x_solucao_sem_pivoteamento = resolver_gauss_sem_pivoteamento(A, b)
+    x_solucao_com_pivoteamento = resolver_gauss(A, b)
+
+    # Resíduo -> ∥Ax − b∥2
+    residuo_sem_pivot =  np.linalg.norm(A @ x_solucao_sem_pivoteamento - b)
+    residuo_com_pivot =  np.linalg.norm(A @ x_solucao_com_pivoteamento - b)
+
+    print(f"Matriz A:\n{A}")
+    print(f"Vetor b: {b}")
+
+    print(f"Residuo sem Pivot: {residuo_sem_pivot}")
+    print(f"Residuo c/Pivot: {residuo_com_pivot}")
+
+    print(f"Solução x sem pivoteamento: {x_solucao_sem_pivoteamento}")
+    print(f"Solução x com pivoteamento: {x_solucao_com_pivoteamento}")
+
+    # Calcular os valores verdadeiros de x1 e x2 para comparação
+    x1_true = 1/3
+    x2_true = 2/3
+    x_true = np.array([x1_true, x2_true])
+
+    # Calcular o erro relativo sem pivoteamento
+    erro_relativo_sem_pivoteamento_x1 = np.abs(x_solucao_sem_pivoteamento[0] - x_true[0]) / np.abs(x_true[0])
+    erro_relativo_sem_pivoteamento_x2 = np.abs(x_solucao_sem_pivoteamento[1] - x_true[1]) / np.abs(x_true[1])
+
+    # Calcular o erro relativo com pivoteamento
+    erro_relativo_com_pivoteamento_x1 = np.abs(x_solucao_com_pivoteamento[0] - x_true[0]) / np.abs(x_true[0])
+    erro_relativo_com_pivoteamento_x2 = np.abs(x_solucao_com_pivoteamento[1] - x_true[1]) / np.abs(x_true[1])
+
+    print(f"Erro Relativo Sem Pivoteamento")
+    print(f"Erro Relativo X1: {erro_relativo_sem_pivoteamento_x1}")
+    print(f"Erro Relativo X2: {erro_relativo_sem_pivoteamento_x2}")
+
+    print(f"Erro Relativo Com Pivoteamento")
+    print(f"Erro Relativo X1: {erro_relativo_com_pivoteamento_x1}")
+    print(f"Erro Relativo X2: {erro_relativo_com_pivoteamento_x2}")
+
+    print("--- Seção 2: Efeito do pivoteamento---")
+
+
+
+    a11_vals = [0.1, 1e-3, 1e-6, 1e-9]
     erro_sem, erro_com = experimento_estabilidade_gauss(a11_vals)
 
-    axs[0, 0].plot(a11_vals, erro_sem, 'ro-', label='Sem Pivoteamento')
-    axs[0, 0].plot(a11_vals, erro_com, 'bs--', label='Com Pivoteamento')
+    # Plotar exatamente como no notebook: dois log-log subplots e salvar
+    fig_q1, ax_q1 = plt.subplots(1, 2, figsize=(10, 6))
+    ax_q1[0].loglog(a11_vals, erro_sem, 'o-', label='Sem Pivoteamento', color='blue')
+    ax_q1[0].loglog(a11_vals, erro_com, 'x-', label='Com Pivoteamento', color='red')
+    ax_q1[0].set_xlabel('Valor de a11 (Log Scale)')
+    ax_q1[0].set_ylabel('Erro Relativo em x1 (Log Scale)')
+    ax_q1[0].set_title('Erro Relativo em x1 vs. a11')
+    ax_q1[0].legend()
+    ax_q1[0].grid(True, which='both', ls='-', alpha=0.7)
+
+    ax_q1[1].loglog(a11_vals, erro_sem, 'o-', label='Sem Pivoteamento', color='blue')
+    ax_q1[1].loglog(a11_vals, erro_com, 'x-', label='Com Pivoteamento', color='red')
+    ax_q1[1].set_xlabel('Valor de a11 (Log Scale)')
+    ax_q1[1].set_ylabel('Erro Relativo em x1 (Log Scale)')
+    ax_q1[1].set_title('Erro Relativo em x1 vs. a11 (repetido)')
+    ax_q1[1].legend()
+    ax_q1[1].grid(True, which='both', ls='-', alpha=0.7)
+
+    plt.tight_layout()
+    plt.savefig('q1_4_estabilidade.pdf', dpi=150, bbox_inches='tight')
+    plt.close()
+
+    # também inserir um resumo no painel consolidado
+    axs[0, 0].loglog(a11_vals, erro_sem, 'o-', color='blue')
+    axs[0, 0].loglog(a11_vals, erro_com, 'x-', color='red')
     axs[0, 0].set_xscale('log')
     axs[0, 0].set_yscale('log')
-    axs[0, 0].invert_xaxis()
     axs[0, 0].set_xlabel(r'Valor do pivô $a_{11}$')
     axs[0, 0].set_ylabel(r'Erro Relativo em $x_1$')
     axs[0, 0].set_title('Q1.4: Estabilidade vs Tamanho do Pivô')
-    axs[0, 0].legend()
+    axs[0, 0].legend(['Sem Pivoteamento','Com Pivoteamento'])
     axs[0, 0].grid(True, which="both", ls="-", alpha=0.2)
-
     # =========================================================================
     # Seção 3: Fatoração LU (Gráfico Q3.2)
     # =========================================================================
     print("--- Seção 3: Fatoração LU vs Gauss Repetido (Q3.2) ---")
-    t_gauss_total, t_lu_total = experimento_desempenho_lu(n_c=200, n_b=50)
+    ns = [50, 100, 150, 200]
+    t_gauss_total, t_lu_total = experimento_desempenho_lu(ns)
 
     axs[0, 1].bar(['Gauss (50x)', 'LU (1x) + 50 Subst.'], [t_gauss_total, t_lu_total], color=['#e74c3c', '#2ecc71'])
     axs[0, 1].set_ylabel('Tempo Total (segundos)')
