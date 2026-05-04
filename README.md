@@ -222,7 +222,7 @@ Este projeto está sob a licença **MIT**. Veja o arquivo `LICENSE` para mais de
 
 ## Autor
 
-Desenvolvido por **Flavia Marcella** como projeto acadêmico.
+Desenvolvido por **Flavia Marcella e Renan Catini** como projeto acadêmico.
 
 ## Contribuições
 
