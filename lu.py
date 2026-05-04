@@ -1,8 +1,7 @@
 """
 Módulo: lu.py
 Descrição: Implementa o método de Fatoração LU de Doolittle (sem pivoteamento)
-e as substituições progressiva e retroativa para a resolução otimizada de 
-sistemas com múltiplos vetores de carga. Inclui também o LU Vetorizado (Desafio).
+e as substituições progressiva e retroativa. Otimizado com vetorização.
 """
 
 import numpy as np
@@ -29,19 +28,19 @@ def subst_prog(L, b):
     return y
 
 def fatoracao_lu(A):
-    """ Fatoracao de Doolittle: A = LU sem pivoteamento. """
+    """ Fatoracao de Doolittle: A = LU sem pivoteamento (Vetorizada). """
     tipo = A.dtype
     n = A.shape[0]
+    U = A.copy().astype(tipo)
     L = np.eye(n, dtype=tipo)
-    U = np.zeros((n, n), dtype=tipo)
 
-    for k in range(n):
-        for j in range(k, n):
-            U[k, j] = A[k, j] - L[k, :k] @ U[:k, j]
-        for i in range(k + 1, n):
-            if U[k, k] == 0:
-                raise ValueError("Divisao por zero na Fatoracao LU.")
-            L[i, k] = (A[i, k] - L[i, :k] @ U[:k, k]) / U[k, k]
+    for k in range(n - 1):
+        if U[k, k] == 0:
+            raise ValueError("Pivo nulo na fatoracao LU.")
+        
+        L[k+1:, k] = U[k+1:, k] / U[k, k]
+        U[k+1:, k:] -= np.outer(L[k+1:, k], U[k, k:])
+        
     return L, U
 
 def resolver_lu(A, b):
@@ -57,9 +56,7 @@ def experimento_desempenho_lu(n_c=200, n_b=50):
     """
     from gauss import resolver_gauss
     
-    # Garantir reprodutibilidade local
     np.random.seed(42)
-    
     Ac = np.random.rand(n_c, n_c).astype(np.float32) + np.eye(n_c) * n_c
     bs = [np.random.rand(n_c).astype(np.float32) for _ in range(n_b)]
 
@@ -80,17 +77,5 @@ def experimento_desempenho_lu(n_c=200, n_b=50):
     return t_gauss_total, t_lu_total
 
 def fatoracao_lu_vectorized(A):
-    """ Fatoracao LU otimizada com operacoes vetorizadas do NumPy (Produto Externo). """
-    n = A.shape[0]
-    tipo = A.dtype
-    U = A.copy()
-    L = np.eye(n, dtype=tipo)
-
-    for k in range(n - 1):
-        if U[k, k] == 0:
-            raise ValueError("Pivo nulo na fatoracao vetorizada.")
-        
-        L[k+1:, k] = U[k+1:, k] / U[k, k]
-        U[k+1:, k:] -= np.outer(L[k+1:, k], U[k, k:])
-        
-    return L, U
+    """ Fatoracao LU otimizada (mesma lógica da fatoracao_lu agora). """
+    return fatoracao_lu(A)

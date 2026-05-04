@@ -45,8 +45,8 @@ def main():
     axs[0, 0].set_xscale('log')
     axs[0, 0].set_yscale('log')
     axs[0, 0].invert_xaxis()
-    axs[0, 0].set_xlabel('Valor do pivô $a_{11}$')
-    axs[0, 0].set_ylabel('Erro Relativo em $x_1$')
+    axs[0, 0].set_xlabel(r'Valor do pivô $a_{11}$')
+    axs[0, 0].set_ylabel(r'Erro Relativo em $x_1$')
     axs[0, 0].set_title('Q1.4: Estabilidade vs Tamanho do Pivô')
     axs[0, 0].legend()
     axs[0, 0].grid(True, which="both", ls="-", alpha=0.2)
@@ -88,11 +88,17 @@ def main():
     # Seção 7: PageRank (Gráfico Q7.3)
     # =========================================================================
     print("--- Seção 7: PageRank (Q7.3) ---")
-    G_mat = np.array([[0,0,1,1], [1,0,0,0], [1,1,0,1], [1,1,0,0]])
+    # Matriz de adjacência do exemplo (G[i,j]=1 se j->i)
+    G_mat = np.array([
+        [0, 0, 1, 1],
+        [1, 0, 0, 0],
+        [1, 1, 0, 1],
+        [1, 1, 0, 0]
+    ])
     pi_vector = calcular_pagerank(G_mat)
     paginas = ['P1', 'P2', 'P3', 'P4']
     axs[2, 1].bar(paginas, pi_vector, color='gold', edgecolor='black')
-    axs[2, 1].set_ylabel('Importância ($\pi$)')
+    axs[2, 1].set_ylabel(r'Importância ($\pi$)')
     axs[2, 1].set_title('Q7.3: Distribuição de PageRank')
     for i, v in enumerate(pi_vector):
         axs[2, 1].text(i, v + 0.005, f"{v:.3f}", ha='center')
@@ -105,6 +111,9 @@ def main():
     t_loop, t_vec = [], []
     for n in n_v:
         Av = np.random.rand(n,n).astype(np.float32) + np.eye(n)*n
+        
+        # Simular versão lenta (sem vetorização) para o gráfico se necessário, 
+        # mas aqui comparamos a fatoração LU padrão vs vetorizada.
         t0 = time.time()
         fatoracao_lu(Av)
         t_loop.append(time.time()-t0)
