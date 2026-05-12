@@ -19,6 +19,8 @@ from cholesky import cholesky
 from pagerank import calcular_pagerank
 from formatacao import (secao_titulo, subsecao, destaque_resultado, destaque_erro, 
                        destaque_aviso, info_matriz, comparacao_metodos, relatorio_final, Cores)
+from thomas import (montar_tridiagonal, thomas)
+from condicao import(hilbert, experimento_hilbert)
 
 def main():
     # Garantir reprodutibilidade global
@@ -381,25 +383,149 @@ def main():
             print(f"    n={n_val:3d}: LU/Cholesky = {status}")
         else:
             print(f"    n={n_val:3d}: {Cores.VERMELHO}[Erro na medição]{Cores.RESET}")
+
     # =========================================================================
-    # Seção 4: Thomas vs. Gauss (Gráfico Q4.2) - TODO (Colega)
+    # Seção 4: Thomas vs. Gauss (Gráfico Q4.2)
     # =========================================================================
     secao_titulo(4, "Thomas vs Gauss")
-    destaque_aviso("Parte do colega - Pendente")
-    axs[1, 1].text(0.5, 0.5, "  Tópico 4: Thomas vs Gauss\n(Parte do Colega)", ha='center', va='center')
-    axs[1, 1].set_title('   Q4.2: Thomas vs Gauss')
+    
+    subsecao("Q4.1: Execução e Verificação (Sistema 5x5)")
+    b_diag = [4.0, 4.0, 4.0, 4.0, 4.0]
+    a_sub  = [-1.0, -1.0, -1.0, -1.0]
+    c_sup  = [-1.0, -1.0, -1.0, -1.0]
+    d_vec  = [1.0, 0.0, 0.0, 0.0, 1.0]
+
+    x_thomas = thomas(a_sub, b_diag, c_sup, d_vec)
+    A_tri = montar_tridiagonal(a_sub, b_diag, c_sup)
+    residuo_thomas = np.linalg.norm(A_tri @ x_thomas - np.array(d_vec))
+
+    destaque_resultado("Solução x (Thomas)", str(x_thomas))
+    destaque_resultado("Resíduo ||Ax - d||", f"{residuo_thomas:.2e}")
+
+    subsecao("Q4.2: Thomas vs Gauss - Escalonamento")
+    print("Esse passo pode demorar um pouquinho...")
+    ns_thomas = [100, 500, 1000, 5000, 10000]
+    t_thomas_list = []
+    t_gauss_tri_list = []
+
+    for n in ns_thomas:
+        a_v = np.full(n-1, -1.0); b_v = np.full(n, 4.0); c_v = np.full(n-1, -1.0); d_v = np.ones(n)
+        
+        # Tempo Thomas
+        t0 = time.perf_counter()
+        thomas(a_v, b_v, c_v, d_v)
+        t_thomas_list.append((time.perf_counter() - t0) * 1000)
+
+        # Tempo Gauss (Matriz Densa)
+        A_dense = montar_tridiagonal(a_v, b_v, c_v)
+        t0 = time.perf_counter()
+        resolver_gauss(A_dense, d_v)
+        t_gauss_tri_list.append((time.perf_counter() - t0) * 1000)
+
+    # Plotagem Q4.2 no local correto da grelha
+    axs[1, 0].clear() # Limpa o placeholder "Pendente"
+    axs[1, 0].loglog(ns_thomas, t_thomas_list, 'o-', label='Thomas O(n)')
+    axs[1, 0].loglog(ns_thomas, t_gauss_tri_list, 's--', label='Gauss O(n³)')
+    axs[1, 0].set_xlabel('Dimensão n')
+    axs[1, 0].set_ylabel('Tempo (ms)')
+    axs[1, 0].set_title('Q4.2: Thomas vs Gauss (Sist. Tridiagonais)')
+    axs[1, 0].legend()
+    axs[1, 0].grid(True)
+
+    subsecao("Q4.3: Memória para n=10.000")
+    n_mem = 10000
+    mem_densa = (n_mem**2 * 8) / 2**20
+    mem_tri = (3 * n_mem * 8) / 2**20
+    print(f"    Matriz Densa: {mem_densa:.2f} MB")
+    print(f"    Representação Tridiagonal: {mem_tri:.4f} MB")
+    print(f"    {Cores.VERDE}Economia de {mem_densa/mem_tri:.0f}x em memória{Cores.RESET}")
 
     # =========================================================================
-    # Seção 5: Custo computacional (Gráfico Q5.2) - Cholesky vs LU
+    # Seção 5: Custo computacional (Gráfico Q5.1)
     # =========================================================================
+    secao_titulo(5, "Custo Computacional")
+    
+    subsecao("Q5.1: Lei de Escala - resolver_gauss")
+    ns_cost = [10, 20, 50, 100, 200, 500]
+    tempos_cost = []
+    for n in ns_cost:
+        A_rand = np.random.rand(n, n) + n * np.eye(n)
+        b_rand = np.random.rand(n)
+        t0 = time.perf_counter()
+        resolver_gauss(A_rand, b_rand)
+        tempos_cost.append((time.perf_counter() - t0) * 1000)
+
+    # Ajuste de potência (log-log)
+    log_n = np.log(ns_cost); log_t = np.log(tempos_cost)
+    coef = np.polyfit(log_n, log_t, 1)
+    alpha = coef[0]
+    destaque_resultado("Expoente alfa estimado", f"{alpha:.3f}")
+
+    # Plotagem Q5.1 (usando o slot axs[1, 0] que estava livre)
+    axs[1, 1].loglog(ns_cost, tempos_cost, 'o', label='Medido')
+    n_ref = np.array([min(ns_cost), max(ns_cost)])
+    axs[1, 1].loglog(n_ref, np.exp(coef[1]) * n_ref**alpha, '--', label=f'Ajuste (alfa={alpha:.2f})')
+    axs[1, 1].set_xlabel('n'); axs[1, 0].set_ylabel('Tempo (ms)')
+    axs[1, 1].set_title('Q5.1: Lei de Escala (Gauss)')
+    axs[1, 1].legend(); axs[1, 0].grid(True)
+
+    subsecao("Q5.2: Eficiência Relativa")
+    # Estimar R (operações/segundo)
+    n_r = 100
+    t0 = time.perf_counter()
+    count = 0.0
+    for i in range(n_r**3): count += 1.0 # Simulação de n^3 operações
+    R = n_r**3 / (time.perf_counter() - t0)
+    
+    T_med_500 = tempos_cost[-1] / 1000
+    T_teo_500 = (2 * 500**3 / 3) / R
+    destaque_resultado("Eficiência T_med/T_teo (n=500)", f"{T_med_500/T_teo_500:.4f}")
 
     # =========================================================================
-    # Seção 6: Condicionamento (Gráfico Q6.1) - TODO (Colega)
+    # Seção 6: Condicionamento (Gráfico Q6.1)
     # =========================================================================
     secao_titulo(6, "Condicionamento")
-    destaque_aviso("Parte do colega - Pendente")
-    axs[2, 0].text(0.5, 0.5, "Tópico 6: Condicionamento\n(Parte do Colega)", ha='center', va='center')
-    axs[2, 0].set_title('Q6.1: Condicionamento')
+    
+    subsecao("Q6.1: Matriz de Hilbert - Estabilidade Numérica")
+    ns_hilbert = [4, 6, 8, 10, 12]
+    kappas = []
+    erros_h = []
+    
+    print(f"    {'n':<4} | {'kappa_2(Hn)':<12} | {'Erro Relativo':<12}")
+    print(f"    {'-' * 35}")
+    
+    for n in ns_hilbert:
+        kappa, erro = experimento_hilbert(n)
+        kappas.append(kappa)
+        erros_h.append(erro)
+        print(f"    {n:<4} | {kappa:1.2e} | {erro:1.2e}")
+
+    # Plotagem Q6.1 no local correto da grelha (axs[2, 0])
+    axs[2, 0].clear()
+    axs[2, 0].semilogy(ns_hilbert, kappas, 's-', label='Número de Condicionamento')
+    axs[2, 0].semilogy(ns_hilbert, erros_h, 'o--', label='Erro Relativo')
+    axs[2, 0].set_xlabel('Dimensão n')
+    axs[2, 0].set_ylabel('Magnitude (Log)')
+    axs[2, 0].set_title('Q6.1: Condicionamento de Hilbert')
+    axs[2, 0].legend()
+    axs[2, 0].grid(True)
+
+    subsecao("Q6.3: Sensibilidade a Perturbações (Erro 1e-6)")
+    # Matriz Bem-condicionada vs Hilbert H5
+    A_bem = np.diag([10, 11, 12, 13, 14])
+    A_mal = hilbert(5)
+    b_test = np.ones(5)
+    erro_A = 1e-6 * np.random.randn(5, 5)
+    
+    x_bem = np.linalg.norm(np.linalg.solve(A_bem + erro_A, b_test) - np.linalg.solve(A_bem, b_test))
+    x_mal = np.linalg.norm(np.linalg.solve(A_mal + erro_A, b_test) - np.linalg.solve(A_mal, b_test))
+    
+    destaque_resultado("Erro solução (Bem-condicionada)", f"{x_bem:.2e}")
+    destaque_resultado("Erro solução (Mal-condicionada)", f"{x_mal:.2e}")
+
+    # =========================================================================
+    # Seção 7: PageRank
+    # =========================================================================
 
     secao_titulo(7, "PageRank")
     
@@ -557,7 +683,11 @@ def main():
         'Gauss (Denso)': {'tempo': t_gauss_p},
         'Scipy spsolve (Esparso)': {'tempo': t_sparse_p}
     })
-    print(f"    {Cores.VERDE}[ACELERACAO] {t_gauss_p / t_sparse_p:.2f}x com esparso{Cores.RESET}")
+    if t_sparse_p > 0:
+        aceleracao = t_gauss_p / t_sparse_p
+        print(f"    {Cores.VERDE}[ACELERACAO] {aceleracao:.2f}x com esparso{Cores.RESET}")
+    else:
+        print(f"    {Cores.VERDE}[ACELERACAO] Infinita (tempo esparso desprezível){Cores.RESET}")
 
     # Benchmarking com n = 100
     subsecao("Teste 3: LU Vetorizado vs Loops Python")
@@ -577,7 +707,12 @@ def main():
         'LU (Loops Python)': {'tempo': t_old},
         'LU (Vetorizado)': {'tempo': t_new}
     })
-    print(f"    {Cores.VERDE}[ACELERACAO] {t_old / t_new:.2f}x com vetorização{Cores.RESET}")
+
+    if t_new > 0:
+        aceleracao = t_old / t_new
+        print(f"    {Cores.VERDE}[ACELERACAO] {aceleracao:.2f}x com vetorização{Cores.RESET}")
+    else:
+        print(f"    {Cores.VERDE}[ACELERACAO] Infinita (tempo vetorizado desprezível para n={n_bench}){Cores.RESET}")
 
 
 
